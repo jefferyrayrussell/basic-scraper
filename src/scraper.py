@@ -22,20 +22,26 @@ INSPECTION_PARAMS = {
 import sys
 import requests
 import re
+from bs4 import BeautifulSoup
 
 def get_inspection_page(**kwargs):
+    """This function: makes a request to the King County Server, fetches
+    search results, takes query parameters as arguments, returns the
+    content and encoding, if problem raises an error."""
+
     url = INSPECTION_DOMAIN + INSPECTION_PATH
     params = INSPECTION_PARAMS.copy()
     for key, val in kwargs.items():
         if key in INSPECTION_PARAMS:
             params[key] = val
-    resp = requests.get(url, params=params)
-    resp.raise_for_status() # <- This is a no-op if there is no HTTP error
-    # remember, in requests `content` is bytes and `text` is unicode
-    return resp.content, resp.encoding
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+    return response.content, response.encoding
+
 
 def load_inspection_page(**kwargs):
-
+    """This function: reads the static inpection_page.html file; returns
+    the content and encoding.
 
 # add this import at the top
 from bs4 import BeautifulSoup
