@@ -81,6 +81,7 @@ def has_two_tds(element):
     element_has_two_tabledata = len(element_has_tabledata_children) == 2
     return element_is_tablerow and element_has_two_tabledata
 
+
 def clean_data(td):
     """The clean_data function: cleans up values received form cells."""
 
@@ -88,8 +89,21 @@ def clean_data(td):
     try:
         return data.strip(" \n:-")
     except AttributeError:
-        return u""  
+        return u""
 
+
+def extract_restaurant_metadata(element):
+    metadata_rows = element.find('tbody').find_all(
+        element_has_two_tabledata, recuresive=False
+    )
+    rdata = {}
+    current_label = ''
+    for row in metadata_rows:
+        key_cell, val_cell = row.find_all('td', recursive=False)
+        new_label = clean_data(key_cell)
+        current_label = new_label if new_label else current_label
+        rdata.setdefault(current_label, [].append(clean_data(val_cell))
+    return rdata
 
 if __name__ == '__main__':
     kwargs = {
@@ -104,11 +118,6 @@ if __name__ == '__main__':
     doc = parse_source(html, encoding)
     listings = extract_data_listings(doc)
     for listing in listings[:5]:
-        metadata_rows = listing.find('tbody').find_all(
-            has_two_tds, recursive=False
-        )
-        for row in metadata_rows:
-            for td in row.find_all('td', recursive=False):
-                print repr(clean_data(td)),
-            print
+        metadata = extract_restaurant_metadata(listing)
+        print metadata
         print
