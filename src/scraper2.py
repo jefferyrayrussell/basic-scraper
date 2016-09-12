@@ -35,17 +35,8 @@ def get_inspection_page(**kwargs):
         if key in INSPECTION_PARAMS:
             params[key] = val
     resp = requests.get(url, params=params)
-    # write_inspection_page(resp)
     resp.raise_for_status()
     return resp.content, resp.encoding
-
-
-# def write_inspection_page(results):
-#     """Write results of search to file on local disk."""
-#     file = open('results.html', 'w')
-#     file.write(str(results.encoding))
-#     file.write(str(results.content))
-#     file.close()
 
 
 def load_inspection_page(local_file_to_read):
@@ -140,7 +131,7 @@ def extract_score_data(elem):
 
 if __name__ == '__main__':
     kwargs = {
-        'Inspection_Start': '2/1/2014',
+        'Inspection_Start': '3/1/2014',
         'Inspection_End': '3/1/2015',
         'Zip_Code': '98105'
     }
@@ -153,4 +144,4 @@ if __name__ == '__main__':
         for listing in listings[:10]:
             metadata = extract_restaurant_metadata(listing)
             score_data = extract_score_data(listing)
-            print(metadata, '\n', score_data, '\n')
+            print('\n', metadata, '\n', score_data, '\n')
