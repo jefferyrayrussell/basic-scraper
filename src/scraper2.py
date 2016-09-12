@@ -1,8 +1,9 @@
-import sys
-import requests
-import re
+"""A Python script to extract restaurant health inspection data."""
+
 from bs4 import BeautifulSoup
-import io
+import requests
+import sys
+import re
 
 INSPECTION_DOMAIN = 'http://info.kingcounty.gov'
 INSPECTION_PATH = '/health/ehs/foodsafety/inspections/Results.aspx'
@@ -22,68 +23,53 @@ INSPECTION_PARAMS = {
     'Violation_Red_Points': '',
     'Violation_Descr': '',
     'Fuzzy_Search': 'N',
-    'Sort': 'H'
+    'Sort': 'B'
 }
 
 
 def get_inspection_page(**kwargs):
-    """ Makes a request to the King County Server, fetches
-    search results, takes query parameters as arguments, returns the
-    content and encoding, if problem raises an error.
-    """
-
+    """Return content and encoding of search from server."""
     url = INSPECTION_DOMAIN + INSPECTION_PATH
     params = INSPECTION_PARAMS.copy()
     for key, val in kwargs.items():
         if key in INSPECTION_PARAMS:
             params[key] = val
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    return response.content, response.encoding
+    resp = requests.get(url, params=params)
+    resp.raise_for_status()
+    return resp.content, resp.encoding
 
 
-def load_inspection_page(**kwargs):
-    """ The function: reads the inpection_page.html file; returns
-    the content and encoding.
-    """
-
-    files = io.open(paths, 'response_body')
-    response = files.read()
-    files.close()
+def load_inspection_page(local_file_to_read):
+    """Read above file on local disk and return content and encoding."""
+    file = open(local_file_to_read, 'r')
+    content = file.read()
+    file.close()
     encoding = 'utf-8'
-    return response, encoding
+    return content, encoding
 
 
 def parse_source(html, encoding='utf-8'):
-    """ Sets up HTML as DOM nodes for
-    scraping, takes the response body from the previous function, parses
-    it using BeautifulSoup, returns the parsed object for processing.
-    """
+    """Set up HTML as DOM nodes for scraping and further processing."""
     parsed = BeautifulSoup(html, 'html5lib', from_encoding=encoding)
     return parsed
 
 
 def extract_data_listings(html):
-    """ Takes parsed HTML and returns a list of the container nodes."""
-
+    """Return a list of listing container nodes."""
     id_finder = re.compile(r'PR[\d]+~')
     return html.find_all('div', id=id_finder)
 
 
-def has_two_tds(element):
-    """ Takes an element as an argument, returns true if the element is 
-    both a <tr> and contains two <td> elements within it.
-    """
-
-    element_is_tablerow = element.name == 'tr'
-    element_has_tabledata_children = elem.find_all('td', recursive=False)
-    element_has_two_tabledata = len(element_has_tabledata_children) == 2
-    return element_is_tablerow and element_has_two_tabledata
+def has_two_tds(elem):
+    """Extract correct metadata."""
+    is_tr = elem.name == 'tr'
+    td_children = elem.find_all('td', recursive=False)
+    has_two = len(td_children) == 2
+    return is_tr and has_two
 
 
 def clean_data(td):
-    """ Cleans up values received from cells."""
-
+    """Strip extraneous characters from metadata."""
     data = td.string
     try:
         return data.strip(" \n:-")
@@ -91,10 +77,10 @@ def clean_data(td):
         return u""
 
 
-def extract_restaurant_metadata(element):
-    """ Puts data into a dictionary to represent a single restaurant."""
-    metadata_rows = element.find('tbody').find_all(
-        element_has_two_tabledata, recuresive=False
+def extract_restaurant_metadata(elem):
+    """Take listing and returns a dictionary."""
+    metadata_rows = elem.find('tbody').find_all(
+        has_two_tds, recursive=False
     )
     rdata = {}
     current_label = ''
@@ -102,17 +88,16 @@ def extract_restaurant_metadata(element):
         key_cell, val_cell = row.find_all('td', recursive=False)
         new_label = clean_data(key_cell)
         current_label = new_label if new_label else current_label
-        rdata.setdefault(current_label, [].append(clean_data(val_cell))
+        rdata.setdefault(current_label, []).append(clean_data(val_cell))
     return rdata
 
 
-def is_inspection_row(element):
-    """ Filter function extracts correct rows to build inspection data."""
-
-    element_is_tablerow = elem.name == 'tr'
+def is_inspection_row(elem):
+    """Find the necessary rows."""
+    is_tr = elem.name == 'tr'
     if not is_tr:
         return False
-    element_has_tabledata_children = elem.find_all('td', recursive=False)
+    td_children = elem.find_all('td', recursive=False)
     has_four = len(td_children) == 4
     this_text = clean_data(td_children[0]).lower()
     contains_word = 'inspection' in this_text
@@ -120,10 +105,9 @@ def is_inspection_row(element):
     return is_tr and has_four and contains_word and does_not_start
 
 
-def extract_score_data(element):
-    """ Builds aggregated data."""
-
-    inspection_rows = element.find_all(is_inspection_row)
+def extract_score_data(elem):
+    """Build aggregated data of inspection scores."""
+    inspection_rows = elem.find_all(is_inspection_row)
     samples = len(inspection_rows)
     total = high_score = average = 0
     for row in inspection_rows:
@@ -136,7 +120,7 @@ def extract_score_data(element):
             total += intval
             high_score = intval if intval > high_score else high_score
     if samples:
-        average = total/float(samples)
+        average = total / float(samples)
     data = {
         u'Average Score': average,
         u'High Score': high_score,
@@ -147,17 +131,17 @@ def extract_score_data(element):
 
 if __name__ == '__main__':
     kwargs = {
-        'Inspection_Start': '3/1/2013',
+        'Inspection_Start': '3/1/2014',
         'Inspection_End': '3/1/2015',
-        'Zip_Code': '98109'
+        'Zip_Code': '98105'
     }
     if len(sys.argv) > 1 and sys.argv[1] == 'test':
-        html, encoding = load_inspection_page('inspection_page.html')
+        html, encoding = load_inspection_page('results.html')
     else:
         html, encoding = get_inspection_page(**kwargs)
-    doc = parse_source(html, encoding)
-    listings = extract_data_listings(doc)
-    for listing in listings[]:
-        metadata = extract_restaurant_metadata(listing)
-        score_data = extract_score_data(listing)
-            print score_data
+        doc = parse_source(html, encoding)
+        listings = extract_data_listings(doc)
+        for listing in listings[:10]:
+            metadata = extract_restaurant_metadata(listing)
+            score_data = extract_score_data(listing)
+            print('\n', metadata, '\n', score_data, '\n')
